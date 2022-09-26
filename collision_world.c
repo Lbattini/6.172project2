@@ -81,10 +81,12 @@ void CollisionWorld_updateLines(CollisionWorld* collisionWorld) {
 
 void CollisionWorld_updatePosition(CollisionWorld* collisionWorld) {
   double t = collisionWorld->timeStep;
+  Vec shift;
   for (int i = 0; i < collisionWorld->numOfLines; i++) {
     Line *line = collisionWorld->lines[i];
-    line->p1 = Vec_add(line->p1, Vec_multiply(line->velocity, t));
-    line->p2 = Vec_add(line->p2, Vec_multiply(line->velocity, t));
+    shift=Vec_multiply(line->velocity, t);
+    line->p1 = Vec_add(line->p1, shift);
+    line->p2 = Vec_add(line->p2, shift);
   }
 }
 
@@ -208,21 +210,25 @@ void CollisionWorld_collisionSolver(CollisionWorld* collisionWorld,
   // energy.
   if (intersectionType == ALREADY_INTERSECTED) {
     Vec p = getIntersectionPoint(l1->p1, l1->p2, l2->p1, l2->p2);
-
-    if (Vec_length(Vec_subtract(l1->p1, p))
-        < Vec_length(Vec_subtract(l1->p2, p))) {
-      l1->velocity = Vec_multiply(Vec_normalize(Vec_subtract(l1->p2, p)),
+    Vec l1p1,l1p2,l2p1,l2p2;
+    l1p1=Vec_subtract(l1->p1, p);
+    l1p2=Vec_subtract(l1->p2, p);
+    l2p1=Vec_subtract(l2->p1, p);
+    l2p2=Vec_subtract(l2->p2, p);
+    if (Vec_length(l1p1)
+        < Vec_length(l2p2)) {
+      l1->velocity = Vec_multiply(Vec_normalize(l1p2),
                                   Vec_length(l1->velocity));
     } else {
-      l1->velocity = Vec_multiply(Vec_normalize(Vec_subtract(l1->p1, p)),
+      l1->velocity = Vec_multiply(Vec_normalize(l1p1),
                                   Vec_length(l1->velocity));
     }
-    if (Vec_length(Vec_subtract(l2->p1, p))
-        < Vec_length(Vec_subtract(l2->p2, p))) {
-      l2->velocity = Vec_multiply(Vec_normalize(Vec_subtract(l2->p2, p)),
+    if (Vec_length(l2p1)
+        < Vec_length(l2p2)) {
+      l2->velocity = Vec_multiply(Vec_normalize(l2p2),
                                   Vec_length(l2->velocity));
     } else {
-      l2->velocity = Vec_multiply(Vec_normalize(Vec_subtract(l2->p1, p)),
+      l2->velocity = Vec_multiply(Vec_normalize(l2p1),
                                   Vec_length(l2->velocity));
     }
     return;
