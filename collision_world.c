@@ -31,7 +31,189 @@
 #include "./intersection_detection.h"
 #include "./intersection_event_list.h"
 #include "./line.h"
+#define N 10000
+#define R 20
+int quadtree[N][20*R];
+bool isinsqr(Vec p,double xu,double yu, double xl, double yl){
+  if(p.x>=xu && p.x<=xl && p.y>=yu && p.y<=yl)
+    return 1;
+  return 0;
+}
+void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld* collisionWorld){
+  int j,k,child,lim;
+  bool moved[10*R];
+  double nxu,nyu,nxl,nyl;
+  double t = collisionWorld->timeStep;
+  //printf("%d %d\n",i,quadtree[i][0]);
+  //printf("%f %f %f %f\n",xu,yu,xl,yl);
+  if(quadtree[i][0]>=R){
+    //startsz=quadtree[i][0];
+    for(j=1;j<=quadtree[i][0];j++) 
+      moved[j]=0;
+    lim=quadtree[i][0];
+    for(j=1;j<=lim;j++){
+      //printf("%d %d %d %d\n",i,j,quadtree[i][j],quadtree[i][0]);
+      Line *line=collisionWorld->lines[quadtree[i][j]];
+      Vec shift,p3,p4;
+      moved[j]=0;
+      shift=Vec_multiply(line->velocity, t);
+      p3= Vec_add(line->p1, shift);
+      p4= Vec_add(line->p2, shift);
+      //printf("%f %f %f %f ",xu,yu,xl,yl);
+      //printf("%f %f %f %f\n",line->p1.x,line->p1.y,p3.x,p3.y);
+      nxu=xu;
+      nyu=yu;
+      nxl=(xu+xl)/2;
+      nyl=(yu+yl)/2;
+      //printf("%f %f %f %f new\n",nxu,nyu,nxl,nyl);
+      if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
+        //quadtree[i][0]--;
+        //printf("a");
+        child=4*i-2;
+        if(quadtree[child][0]==-1)
+          quadtree[child][0]=0;
+        quadtree[child][0]++;
+        quadtree[child][quadtree[child][0]]=quadtree[i][j];
+        moved[j]=1;
+        //printf("%f %f %f %f new\n",nxu,nyu,nxl,nyl);
+        if(quadtree[child][0]>=R)
+          initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);//to do for other 3
+      }
+      nxu=(xu+xl)/2;
+      nyu=yu;
+      nxl=xl;
+      nyl=(yu+yl)/2;
+      if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
+        child=4*i-1;
+        //printf("b");
+        if(quadtree[child][0]==-1)
+          quadtree[child][0]=0;
+         quadtree[child][0]++;
+        quadtree[child][quadtree[child][0]]=quadtree[i][j];
+        //quadtree[child][0]++;
+        moved[j]=1;
+        if(quadtree[child][0]>=R)
+        initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
+      }
+      nxu=xu;
+      nyu=(yu+yl)/2;
+      nxl=(xu+xl)/2;
+      nyl=yl;
+      if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
+        child=4*i;
+        //printf("c");
+        if(quadtree[child][0]==-1)
+          quadtree[child][0]=0;
+        quadtree[child][0]++;
+        quadtree[child][quadtree[child][0]]=quadtree[i][j];
+        //quadtree[child][0]++;
+        moved[j]=1;
+        if(quadtree[child][0]>=R)
+        initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
+      }
+      nxu=(xu+xl)/2;
+      nyu=(yu+yl)/2;
+      nxl=xl;
+      nyl=yl;
+      if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
+        child=4*i+1;
+        //printf("d");
+        if(quadtree[child][0]==-1)
+          quadtree[child][0]=0;
+        quadtree[child][0]++;
+        quadtree[child][quadtree[child][0]]=quadtree[i][j];
+        //quadtree[child][0]++;
+        moved[j]=1;
+        if(quadtree[child][0]>=R){
+         // printf("%d\n",quadtree[i][j]);
+        initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);}
+      }
+      //if(moved[j]) printf("\n");
+    }
+    for(j=1,k=1;j<=quadtree[i][0];j++){
+      if(!moved[j]){
+        //if(i==9 || quadtree[i][j]==0 ) printf("%d %d %d %da\n",i,j,k,quadtree[i][j]);
+        quadtree[i][k]=quadtree[i][j];
+        k++;
+      }
+      //else 
+        //if(i==9 || quadtree[i][j]==0 ) printf("%d %d %d %d mv\n",i,j,k,quadtree[i][j]);
+       // if(i<20)
+        //printf("%d %d %d %d mv\n",i,j,k,quadtree[i][j]);
+    }
+    //printf("%d %d quadtree k \n",quadtree[i][0],k);
+    quadtree[i][0]=k-1;
+  }
+}
+void quadintersection(int i,CollisionWorld* collisionWorld,IntersectionEventList* intersectionEventList){
+  //printf("a");
+  if(quadtree[i][0]==-1)
+    return;
+  //printf("%d %d\n",i,quadtree[i][0]);
+  int j,k,parent;
+  //first,check intersection in the same quadrant, at the same level
+  for (j = 1; j <= quadtree[i][0]; j++) {
+    Line *l1 = collisionWorld->lines[quadtree[i][j]];
+   
+    for (k = j + 1; k <= quadtree[i][0]; k++) {
+      Line *l2 = collisionWorld->lines[quadtree[i][k]];
+      //printf("%f %f %f %f %f %f %f %f\n",l1->p1.x,l1->p1.y,l1->p2.x,l1->p2.y,l2->p1.x,l2->p1.y,l2->p2.x,l2->p2.y);
+      // intersect expects compareLines(l1, l2) < 0 to be true.
+      // Swap l1 and l2, if necessary.
+      if (compareLines(l1, l2) >= 0) {
+        Line *temp = l1;
+        l1 = l2;
+        l2 = temp;
+      }
 
+      IntersectionType intersectionType =
+          intersect(l1, l2, collisionWorld->timeStep);
+      if (intersectionType != NO_INTERSECTION) {
+        IntersectionEventList_appendNode(intersectionEventList, l1, l2,
+                                         intersectionType);
+        collisionWorld->numLineLineCollisions++;
+      //printf("%d %d\n",quadtree[i][j],quadtree[i][k]);
+      }
+    }
+  }
+  //printf("parents\n");
+  //check intersection with bigger quadrants( parents), up to the root
+  for (j = 1; j <= quadtree[i][0]; j++) {
+    Line *l1 = collisionWorld->lines[quadtree[i][j]];
+    parent=(i+2)/4;
+    //printf("%d :",i);
+    while(parent>=1){
+    //  printf("%d ",parent);
+      for (k = 1; k <= quadtree[parent][0]; k++) {
+        Line *l2 = collisionWorld->lines[quadtree[parent][k]];
+        Line *l1 = collisionWorld->lines[quadtree[i][j]];
+      //printf("%f %f %f %f %f %f %f %f\n",l1->p1.x,l1->p1.y,l1->p2.x,l1->p2.y,l2->p1.x,l2->p1.y,l2->p2.x,l2->p2.y);
+        // intersect expects compareLines(l1, l2) < 0 to be true.
+        // Swap l1 and l2, if necessary.
+        if (compareLines(l1, l2) >= 0) {
+          Line *temp = l1;
+          l1 = l2;
+          l2 = temp;
+        }
+
+        IntersectionType intersectionType =
+          intersect(l1, l2, collisionWorld->timeStep);
+        if (intersectionType != NO_INTERSECTION) {
+          IntersectionEventList_appendNode(intersectionEventList, l1, l2,
+                                         intersectionType);
+          collisionWorld->numLineLineCollisions++;
+        //   printf("%d %d\n",quadtree[i][j],quadtree[parent][k]);
+        }
+      }
+      parent=(parent+2)/4;
+    }
+    //printf("\n");
+  }
+  quadintersection(4*i-2,collisionWorld,intersectionEventList);
+  quadintersection(4*i-1,collisionWorld,intersectionEventList);
+  quadintersection(4*i,collisionWorld,intersectionEventList);
+  quadintersection(4*i+1,collisionWorld,intersectionEventList);
+}
 CollisionWorld* CollisionWorld_new(const unsigned int capacity) {
   assert(capacity > 0);
 
@@ -127,10 +309,42 @@ void CollisionWorld_lineWallCollision(CollisionWorld* collisionWorld) {
 }
 
 void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
+  //printf("__________\n");
   IntersectionEventList intersectionEventList = IntersectionEventList_make();
-
+  for (int i = 0; i < N; i++) quadtree[i][0]=-1;
+  //initialize quadtree, by adding 3*R lines to the root, and then pushing them by calling initquadtree
+  int j=1,k,l,tot=0;
+  //printf("n: %d\n",collisionWorld->numOfLines);
+  for (int i = 0; i < collisionWorld->numOfLines; i++,j++){
+    quadtree[1][j]=i; 
+     Line *l1 = collisionWorld->lines[i];
+    //printf("%f %f %f %f\n",l1->p1.x,l1->p1.y,l1->p2.x,l1->p2.y);
+    //printf("%d %d\n",j,quadtree[1][j]);
+   /*if(i==808){
+      for(k=1,tot=0;k<N;k++){
+        if(quadtree[k][0]>0) {printf("%d %d ",k,quadtree[k][0]);
+        tot+=quadtree[k][0];}
+        for(l=1;l<=quadtree[k][0];l++){
+          if(quadtree[k][l]==0) printf("a");
+          printf("%d ",quadtree[k][l]);
+        }
+        if(l>1) printf("\n");
+      }
+      printf("%d\n",tot);
+    }*/
+    if(j-quadtree[1][0]>=R){
+      quadtree[1][0]=j;
+      initquadtree(1,0.5,0.5,1,1,collisionWorld);
+      j=quadtree[1][0];
+    }
+  }
+  //printf("aaa");
+  quadtree[1][0]=j-1;
+  initquadtree(1,0.5,0.5,1,1,collisionWorld);
+  quadintersection(1,collisionWorld,&intersectionEventList);
   // Test all line-line pairs to see if they will intersect before the
   // next time step.
+  /*
   for (int i = 0; i < collisionWorld->numOfLines; i++) {
     Line *l1 = collisionWorld->lines[i];
 
@@ -154,7 +368,7 @@ void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
       }
     }
   }
-
+  */
   // Sort the intersection event list.
   IntersectionEventNode* startNode = intersectionEventList.head;
   while (startNode != NULL) {
@@ -216,7 +430,7 @@ void CollisionWorld_collisionSolver(CollisionWorld* collisionWorld,
     l2p1=Vec_subtract(l2->p1, p);
     l2p2=Vec_subtract(l2->p2, p);
     if (Vec_length(l1p1)
-        < Vec_length(l2p2)) {
+        < Vec_length(l1p2)) {
       l1->velocity = Vec_multiply(Vec_normalize(l1p2),
                                   Vec_length(l1->velocity));
     } else {
