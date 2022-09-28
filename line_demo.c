@@ -22,7 +22,7 @@
  **/
 
 #include "./line_demo.h"
-
+#include<cilk/cilk.h>
 #include <time.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -127,7 +127,15 @@ unsigned int LineDemo_getNumLineLineCollisions(LineDemo* lineDemo) {
 // The main simulation loop
 bool LineDemo_update(LineDemo* lineDemo) {
   lineDemo->count++;
-  CollisionWorld_updateLines(lineDemo->collisionWorld);
+  /*if(lineDemo->count<lineDemo->numFrames-1){
+    cilk_spawn CollisionWorld_updateLines(lineDemo->collisionWorld);
+    lineDemo->count++;
+    CollisionWorld_updateLines(lineDemo->collisionWorld);
+    cilk_sync;
+    //lineDemo->count++;
+  }
+  else*/ 
+    CollisionWorld_updateLines(lineDemo->collisionWorld);
   if (lineDemo->count > lineDemo->numFrames) {
     return false;
   }

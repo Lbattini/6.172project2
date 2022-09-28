@@ -28,7 +28,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include<cilk/cilk.h>
-//#include <cilk/reducer_opadd.h>
 #include "./intersection_detection.h"
 #include "./intersection_event_list.h"
 #include "./line.h"
@@ -40,17 +39,9 @@ bool isinsqr(Vec p,double xu,double yu, double xl, double yl){
     return 1;
   return 0;
 }
-void printlist(IntersectionEventNode* head){
-  IntersectionEventNode* curNode=head;
-  while (curNode != NULL) {
-    printf("%f %f %f %f\n",curNode->l1->p1.x,curNode->l1->p1.y,curNode->l2->p1.x,curNode->l2->p1.y);
-    curNode = curNode->next;
-  }
-  printf("______\n");
-}
 void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld* collisionWorld){
-  int k,child,lim;
-  bool moved[10*R]; //int ongoing;
+  int j,k,child,lim;
+  bool moved[10*R];
   double nxu,nyu,nxl,nyl;
   double t = collisionWorld->timeStep;
   //printf("%d %d\n",i,quadtree[i][0]);
@@ -60,8 +51,7 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
     //for(j=1;j<=quadtree[i][0];j++) 
       //moved[j]=0;
     lim=quadtree[i][0];
-    //ongoing=0;
-    for(int j=1;j<=lim;j++){
+    for(j=1;j<=lim;j++){
       Line *line=collisionWorld->lines[quadtree[i][j]];
       Vec shift,p3,p4;
       moved[j]=0;
@@ -74,15 +64,13 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
       nyl=(yu+yl)/2;
       if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
         child=4*i-2;
-        //if(ongoing==1)  cilk_sync;
         if(quadtree[child][0]==-1)
           quadtree[child][0]=0;
         quadtree[child][0]++;
         quadtree[child][quadtree[child][0]]=quadtree[i][j];
         moved[j]=1;
-        if(quadtree[child][0]>=R){
-          initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
-        }
+        if(quadtree[child][0]>=R)
+          initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);//to do for other 3
       }
       nxu=(xu+xl)/2;
       nyu=yu;
@@ -90,41 +78,25 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
       nyl=(yu+yl)/2;
       if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
         child=4*i-1;
-        //if(ongoing==2)  cilk_sync;
         if(quadtree[child][0]==-1)
           quadtree[child][0]=0;
          quadtree[child][0]++;
         quadtree[child][quadtree[child][0]]=quadtree[i][j];
         moved[j]=1;
-       /* if(quadtree[child][0]>=R){
-          if(ongoing==0 ){
-            ongoing=2;
-            cilk_spawn initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
-          }
-          else{
-            initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
-            cilk_sync;
-            ongoing=0;
-          }
-        }
-      }*/
         if(quadtree[child][0]>=R)
-          initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
+        initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
       }
       nxu=xu;
       nyu=(yu+yl)/2;
       nxl=(xu+xl)/2;
       nyl=yl;
       if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
-        child=4*i;  
-        //if(ongoing==3)  cilk_sync;
+        child=4*i;
         if(quadtree[child][0]==-1)
           quadtree[child][0]=0;
         quadtree[child][0]++;
         quadtree[child][quadtree[child][0]]=quadtree[i][j];
         moved[j]=1;
-      
-        
         if(quadtree[child][0]>=R)
         initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
       }
@@ -134,18 +106,17 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
       nyl=yl;
       if(isinsqr(line->p1,nxu,nyu,nxl,nyl) && isinsqr(line->p2,nxu,nyu,nxl,nyl) && isinsqr(p3,nxu,nyu,nxl,nyl) && isinsqr(p4,nxu,nyu,nxl,nyl)){
         child=4*i+1;
+        //printf("d");
         if(quadtree[child][0]==-1)
           quadtree[child][0]=0;
         quadtree[child][0]++;
         quadtree[child][quadtree[child][0]]=quadtree[i][j];
         moved[j]=1;
         if(quadtree[child][0]>=R){
-        
         initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);}
-      
-    }}
-    k=1;
-    for(int j=1;j<=quadtree[i][0];j++){
+      }
+    }
+    for(j=1,k=1;j<=quadtree[i][0];j++){
       if(!moved[j]){
         quadtree[i][k]=quadtree[i][j];
         k++;
@@ -155,51 +126,42 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
     quadtree[i][0]=k-1;
   }
 }
-void quadintersection(int i,int *tempsum,CollisionWorld* collisionWorld,IntersectionEventList* intersectionEventList){
-  //IntersectionEventList intersectionEventList=IntersectionEventList_make();
-  IntersectionEventList newlist1=IntersectionEventList_make(),newlist2=IntersectionEventList_make(),newlist3=IntersectionEventList_make(),newlist4=IntersectionEventList_make();
-  //IntersectionEventNode *newnode1,*newnode2,*newnode3,*newnode4;
-  int sum1,sum2,sum3,sum4;
-  sum1=sum2=sum3=sum4=0;
-  if(quadtree[i][0]==-1){
-    return ;
-  }
-  int k,parent;
-  //CILK_C_REDUCER_OPADD(sum,int,0);
-  //CILK_C_REGISTER_REDUCER(sum);
+void quadintersection(int i,CollisionWorld* collisionWorld,IntersectionEventList* intersectionEventList){
+  if(quadtree[i][0]==-1)
+    return;
+   quadintersection(4*i-2,collisionWorld,intersectionEventList);
+  int j,k,parent;
+  bool a=1;
   //first,check intersection in the same quadrant, at the same level
-  for (int j = 1; j <= quadtree[i][0]; j++) {
+  for (j = 1; j <= quadtree[i][0]; j++) {
     //Line *l1 = collisionWorld->lines[quadtree[i][j]];
    
     for (k = j + 1; k <= quadtree[i][0]; k++) {
-      Line *l2 = (collisionWorld->lines[quadtree[i][k]]);
-      Line *l1 = (collisionWorld->lines[quadtree[i][j]]);
+      Line *l1 = collisionWorld->lines[quadtree[i][j]],*l2 = collisionWorld->lines[quadtree[i][k]];
       // intersect expects compareLines(l1, l2) < 0 to be true.
       // Swap l1 and l2, if necessary.
-       IntersectionType intersectionType;
       if (compareLines(l1, l2) >= 0) {
-        intersectionType =
-          intersect(l2,l1, collisionWorld->timeStep);
-        if (intersectionType != NO_INTERSECTION) {
-          IntersectionEventList_appendNode(intersectionEventList, l2, l1,
-                                         intersectionType);
-          (*tempsum)++;
-        }
+        Line *temp = l1;
+        l1 = l2;
+        l2 = temp;
       }
-      else{
-       intersectionType=intersect(l1,l2, collisionWorld->timeStep);
-        if (intersectionType != NO_INTERSECTION) {
-          IntersectionEventList_appendNode(intersectionEventList, l1, l2,
+
+      IntersectionType intersectionType =
+          intersect(l1, l2, collisionWorld->timeStep);
+      if (intersectionType != NO_INTERSECTION) {
+         // cilk_sync;
+        IntersectionEventList_appendNode(intersectionEventList, l1, l2,
                                          intersectionType);
-          //collisionWorld->numLineLineCollisions++;
-          (*tempsum)++;
-        }}
+        collisionWorld->numLineLineCollisions++;
+      }
     }
   }
-  //collisionWorld->numLineLineCollisions+=REDUCER_VIEW(sum);
-  //CILK_C_UNREGISTER_REDUCER(sum);
+  //if(!a){
+    //a=1;
+    //cilk_spawn quadintersection(4*i-1,collisionWorld,intersectionEventList);
+  //}
   //check intersection with bigger quadrants( parents), up to the root
-  for (int j = 1; j <= quadtree[i][0]; j++) {
+  for (j = 1; j <= quadtree[i][0]; j++) {
     //Line *l1 = collisionWorld->lines[quadtree[i][j]];
     parent=(i+2)/4;
     while(parent>=1){
@@ -208,76 +170,29 @@ void quadintersection(int i,int *tempsum,CollisionWorld* collisionWorld,Intersec
         Line *l1 = collisionWorld->lines[quadtree[i][j]];
         // intersect expects compareLines(l1, l2) < 0 to be true.
         // Swap l1 and l2, if necessary.
-         IntersectionType intersectionType;
-      if (compareLines(l1, l2) >= 0) {
-        intersectionType =
-          intersect(l2,l1, collisionWorld->timeStep);
-        if (intersectionType != NO_INTERSECTION) {
-          IntersectionEventList_appendNode(intersectionEventList, l2, l1,
-                                         intersectionType);
-          (*tempsum)++;
-        }
-      }
-      else{
-       intersectionType=intersect(l1,l2, collisionWorld->timeStep);
-        /*if (compareLines(l1, l2) >= 0) {
-          cilk_sync;
+        if (compareLines(l1, l2) >= 0) {
           Line *temp = l1;
           l1 = l2;
           l2 = temp;
         }
 
         IntersectionType intersectionType =
-          intersect(l1, l2, collisionWorld->timeStep);*/
+          intersect(l1, l2, collisionWorld->timeStep);
         if (intersectionType != NO_INTERSECTION) {
+           // cilk_sync;
           IntersectionEventList_appendNode(intersectionEventList, l1, l2,
                                          intersectionType);
-          //collisionWorld->numLineLineCollisions++;
-          (*tempsum)++;
-        }}
+          collisionWorld->numLineLineCollisions++;
+        }
       }
       parent=(parent+2)/4;
     }
   }
-  //if(i<50) printf("%d :\n",i);
-  cilk_scope{
-  cilk_spawn quadintersection(4*i-2,&sum1,collisionWorld,&newlist1);//alert: determinacy race. To do: return intersectioneventlist
-  //if(i<50) printlist(newnode1);
-  //newnode1=newlist1.head;
-  cilk_spawn quadintersection(4*i-1,&sum2,collisionWorld,&newlist2);
- // newnode2=newlist2.head;
-  //if(newnode1!=NULL || newnode2!=NULL) printf("%d: %p %p %p %p\n",i,intersectionEventList->head,intersectionEventList->tail,newnode1,newnode2);
-  //IntersectionEventList_appendlist(intersectionEventList,newnode1);
-  //IntersectionEventList_appendlist(intersectionEventList,newnode2);
-  //newlist1=IntersectionEventList_make(),newlist2=IntersectionEventList_make();
-  
-  //if(i<50) printlist(newnode2);
-  cilk_spawn quadintersection(4*i,&sum3,collisionWorld,&newlist3);
-  //newnode3=newlist3.head;
-  //if(i<50) printlist(newnode3);
-  cilk_spawn quadintersection(4*i+1,&sum4,collisionWorld,&newlist4);
-  //newnode4=newlist4.head;
-  }
-  //if(i<50) printlist(newnode4);
+  //cilk_spawn quadintersection(4*i-2,collisionWorld,intersectionEventList);
+  quadintersection(4*i-1,collisionWorld,intersectionEventList);
   //cilk_sync;
-  
-  (*tempsum)+=(sum1+sum2+sum3+sum4);
-   mergelist(intersectionEventList,newlist1.head);
-  mergelist(intersectionEventList,newlist2.head);
-  mergelist(intersectionEventList,newlist3.head);
-  mergelist(intersectionEventList,newlist4.head);
-  /*if(intersectionEventList->head!=NULL){
-    printf("%d :\n",i);
-    printlist(newnode1);
-    printlist(newnode2);
-    printlist(newnode3);
-    printlist(newnode4);
-    printf("current: \n");
-    printlist(intersectionEventList->head);
-  }*/
-  // if(newnode1!=NULL || newnode2!=NULL) printf("%d: %p %p %p %p\n",i,intersectionEventList->head,intersectionEventList->tail,newnode3,newnode4);
-  //if(intersectionEventList.head!=NULL) printf("%d: %p %p\n",i,intersectionEventList.head,intersectionEventList.tail);
-  //return intersectionEventList->head;
+  quadintersection(4*i,collisionWorld,intersectionEventList);
+  quadintersection(4*i+1,collisionWorld,intersectionEventList);
 }
 CollisionWorld* CollisionWorld_new(const unsigned int capacity) {
   assert(capacity > 0);
@@ -296,7 +211,7 @@ CollisionWorld* CollisionWorld_new(const unsigned int capacity) {
 }
 
 void CollisionWorld_delete(CollisionWorld* collisionWorld) {
-  cilk_for (int i = 0; i < collisionWorld->numOfLines; i++) {
+  for (int i = 0; i < collisionWorld->numOfLines; i++) {
     free(collisionWorld->lines[i]);
   }
   free(collisionWorld->lines);
@@ -329,7 +244,7 @@ void CollisionWorld_updateLines(CollisionWorld* collisionWorld) {
 void CollisionWorld_updatePosition(CollisionWorld* collisionWorld) {
   double t = collisionWorld->timeStep;
   Vec shift;
-  cilk_for (int i = 0; i < collisionWorld->numOfLines; i++) {
+  for (int i = 0; i < collisionWorld->numOfLines; i++) {
     Line *line = collisionWorld->lines[i];
     shift=Vec_multiply(line->velocity, t);
     line->p1 = Vec_add(line->p1, shift);
@@ -374,9 +289,7 @@ void CollisionWorld_lineWallCollision(CollisionWorld* collisionWorld) {
 }
 
 void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
-  //printf("a______a\n");
-  int sum1=0;
-  IntersectionEventList intersectionEventList = IntersectionEventList_make(),newlist1=IntersectionEventList_make();
+  IntersectionEventList intersectionEventList = IntersectionEventList_make();
   for (int i = 0; i < N; i++) quadtree[i][0]=-1;
   //initialize quadtree, by adding 3*R lines to the root, and then pushing them by calling initquadtree
   int j=1;
@@ -390,20 +303,14 @@ void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
   }
   quadtree[1][0]=j-1;
   initquadtree(1,0.5,0.5,1,1,collisionWorld);
-  //quadintersection(1,collisionWorld,&intersectionEventList);
-  quadintersection(1,&sum1,collisionWorld,&newlist1);
-  mergelist(&intersectionEventList,newlist1.head);
-  collisionWorld->numLineLineCollisions+=sum1;
-  //printlist(intersectionEventList.head);
+  quadintersection(1,collisionWorld,&intersectionEventList);
   // Test all line-line pairs to see if they will intersect before the
   // next time step.
   /*
   for (int i = 0; i < collisionWorld->numOfLines; i++) {
     Line *l1 = collisionWorld->lines[i];
-
     for (int j = i + 1; j < collisionWorld->numOfLines; j++) {
       Line *l2 = collisionWorld->lines[j];
-
       // intersect expects compareLines(l1, l2) < 0 to be true.
       // Swap l1 and l2, if necessary.
       if (compareLines(l1, l2) >= 0) {
@@ -411,7 +318,6 @@ void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
         l1 = l2;
         l2 = temp;
       }
-
       IntersectionType intersectionType =
           intersect(l1, l2, collisionWorld->timeStep);
       if (intersectionType != NO_INTERSECTION) {
@@ -441,18 +347,13 @@ void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
 
   // Call the collision solver for each intersection event.
   IntersectionEventNode* curNode = intersectionEventList.head;
-  //int cont=1;
+
   while (curNode != NULL) {
-   // printf("%f %f %f %f\n",curNode->l1->p1.x,curNode->l1->p1.y,curNode->l2->p1.x,curNode->l2->p1.y);
     CollisionWorld_collisionSolver(collisionWorld, curNode->l1, curNode->l2,
                                    curNode->intersectionType);
-    //cilk_sync;}
-    //else cilk_spawn CollisionWorld_collisionSolver(collisionWorld, curNode->l1, curcurNode->intersectionType);
-      
-    //cont++;
     curNode = curNode->next;
   }
-  //cilk_sync;
+
   IntersectionEventList_deleteNodes(&intersectionEventList);
 }
 

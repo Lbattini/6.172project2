@@ -60,9 +60,10 @@ IntersectionEventList IntersectionEventList_make();
 void IntersectionEventList_appendNode(
     IntersectionEventList* intersectionEventList, Line* l1, Line* l2,
     IntersectionType intersectionType);
-
+void mergelist(IntersectionEventList* intersectionEventList, IntersectionEventNode* newNode);
 // Deletes all the nodes in the list.
 void IntersectionEventList_deleteNodes(
     IntersectionEventList* intersectionEventList);
-
+void IntersectionEventList_appendlist(
+    IntersectionEventList* intersectionEventList, IntersectionEventNode* newNode);
 #endif  // INTERSECTIONEVENTLIST_H_

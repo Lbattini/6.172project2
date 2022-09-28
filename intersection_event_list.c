@@ -89,7 +89,35 @@ void IntersectionEventList_appendNode(
   }
   intersectionEventList->tail = newNode;
 }
-
+void IntersectionEventList_appendlist(
+    IntersectionEventList* intersectionEventList, IntersectionEventNode* newNode) {
+  if (newNode == NULL || newNode==intersectionEventList->tail) {
+    return;
+  }
+  if (intersectionEventList->head == NULL) {
+    intersectionEventList->head = newNode;
+  } else {
+    intersectionEventList->tail->next = newNode;
+  }
+  intersectionEventList->tail = newNode;
+}
+void mergelist(IntersectionEventList* intersectionEventList, IntersectionEventNode* newNode){
+  if(newNode==NULL)
+    return;
+  if (intersectionEventList->head == NULL) {
+    intersectionEventList->head = newNode;
+  } else {
+    intersectionEventList->tail->next = newNode;
+  }
+  intersectionEventList->tail = newNode;
+  IntersectionEventNode* curNode=newNode;
+  curNode=curNode->next;
+  while (curNode != NULL) {
+    intersectionEventList->tail->next = curNode;
+    intersectionEventList->tail = curNode;
+    curNode=curNode->next;
+  }
+}
 void IntersectionEventList_deleteNodes(
     IntersectionEventList* intersectionEventList) {
   IntersectionEventNode* curNode = intersectionEventList->head;
