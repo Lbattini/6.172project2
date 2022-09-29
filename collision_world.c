@@ -138,6 +138,11 @@ void quadintersection(int i,int *tempsum,CollisionWorld* collisionWorld,Intersec
     return ;
   }
   int k,parent;
+  cilk_scope{
+  cilk_spawn quadintersection(4*i-2,&sum1,collisionWorld,&newlist1);
+  cilk_spawn quadintersection(4*i-1,&sum2,collisionWorld,&newlist2);
+  cilk_spawn quadintersection(4*i,&sum3,collisionWorld,&newlist3);
+  cilk_spawn quadintersection(4*i+1,&sum4,collisionWorld,&newlist4);
   for (int j = 1; j <= quadtree[i][0]; j++) {
     for (k = j + 1; k <= quadtree[i][0]; k++) {
       Line *l2 = (collisionWorld->lines[quadtree[i][k]]);
@@ -196,11 +201,11 @@ void quadintersection(int i,int *tempsum,CollisionWorld* collisionWorld,Intersec
       parent=(parent+2)/4;
     }
   }
-  cilk_scope{
-  cilk_spawn quadintersection(4*i-2,&sum1,collisionWorld,&newlist1);
+  /*cilk_scope{
+  //cilk_spawn quadintersection(4*i-2,&sum1,collisionWorld,&newlist1);
   cilk_spawn quadintersection(4*i-1,&sum2,collisionWorld,&newlist2);
   cilk_spawn quadintersection(4*i,&sum3,collisionWorld,&newlist3);
-  cilk_spawn quadintersection(4*i+1,&sum4,collisionWorld,&newlist4);
+  cilk_spawn quadintersection(4*i+1,&sum4,collisionWorld,&newlist4);*/
   }
   (*tempsum)+=(sum1+sum2+sum3+sum4);
    mergelist(intersectionEventList,newlist1.head);
