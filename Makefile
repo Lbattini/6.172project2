@@ -49,13 +49,13 @@ PRODUCT_SOURCES = $(filter-out graphic_stuff.c, $(wildcard *.c))
 
 # What we're building
 PRODUCT_OBJECTS = $(PRODUCT_SOURCES:.c=.o)
-PRODUCT = screensaver
+PRODUCT = screensaver_bench
 PROFILE_PRODUCT = $(PRODUCT:%=%.prof) #the product, instrumented for gprof
 
 # What we're building with
 CXX = /home/voidbat/build/bin/clang
-CXXFLAGS = -std=gnu99 -Wall -fopencilk #-fcilktool=cilkscale-benchmark
-LDFLAGS = -lrt -lm -fopencilk #-fcilktool=cilkscale-benchmark
+CXXFLAGS = -std=gnu99 -Wall -fopencilk -fcilktool=cilkscale-benchmark
+LDFLAGS = -lrt -lm -fopencilk -fcilktool=cilkscale-benchmark
 
 include ./cilkutils.mk
 

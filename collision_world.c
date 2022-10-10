@@ -28,7 +28,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include<cilk/cilk.h>
-//#include <cilk/reducer_opadd.h>
 #include "./intersection_detection.h"
 #include "./intersection_event_list.h"
 #include "./line.h"
@@ -48,9 +47,17 @@ void printlist(IntersectionEventNode* head){
   }
   printf("______\n");
 }
+void zero(void *v) {
+  *(int *)v = 0;
+}
+
+void plus(void *l, void *r) {
+  *(int *)l += *(int *)r;
+}
 void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld* collisionWorld){
+  //if(i>4*collisionWorld->numOfLines) return;
   int k,child,lim;
-  bool moved[10*R]; //int ongoing;
+  bool moved[10*R];
   double nxu,nyu,nxl,nyl;
   double t = collisionWorld->timeStep;
   if(quadtree[i][0]>=R){
@@ -198,7 +205,7 @@ void quadintersection(int i,int *tempsum,CollisionWorld* collisionWorld,Intersec
           (*tempsum)++;
         }}
       }
-      parent=(parent+2)/4;
+      parent=(parent+2)>>2;
     }
   }
   /*cilk_scope{
@@ -263,7 +270,7 @@ void CollisionWorld_updateLines(CollisionWorld* collisionWorld) {
 void CollisionWorld_updatePosition(CollisionWorld* collisionWorld) {
   double t = collisionWorld->timeStep;
   Vec shift;
-  cilk_for (int i = 0; i < collisionWorld->numOfLines; i++) {
+  cilk_for (int i = 0; i < collisionWorld->numOfLines; i++) {//cilk_for can be used here, with very minor improvements
     Line *line = collisionWorld->lines[i];
     shift=Vec_multiply(line->velocity, t);
     line->p1 = Vec_add(line->p1, shift);
@@ -272,6 +279,7 @@ void CollisionWorld_updatePosition(CollisionWorld* collisionWorld) {
 }
 
 void CollisionWorld_lineWallCollision(CollisionWorld* collisionWorld) {
+  int /*cilk_reducer(zero, plus)*/ sum = 0;
   for (int i = 0; i < collisionWorld->numOfLines; i++) {
     Line *line = collisionWorld->lines[i];
     bool collide = false;
@@ -302,21 +310,24 @@ void CollisionWorld_lineWallCollision(CollisionWorld* collisionWorld) {
     }
     // Update total number of collisions.
     if (collide == true) {
-      collisionWorld->numLineWallCollisions++;
+      //collisionWorld->numLineWallCollisions++;
+      sum++;
     }
   }
+  collisionWorld->numLineWallCollisions+=sum;
 }
 
 void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
   //printf("a______a\n");
-  int sum1=0;
+  int sum1=0,n;
   IntersectionEventList intersectionEventList = IntersectionEventList_make(),newlist1=IntersectionEventList_make();
-  for (int i = 0; i < N; i++) quadtree[i][0]=-1;
+  n=N;
+  for (int i = 0; i < n; i++) quadtree[i][0]=-1;
   //initialize quadtree, by adding 3*R lines to the root, and then pushing them by calling initquadtree
   int j=1;
   for (int i = 0; i < collisionWorld->numOfLines; i++,j++){
     quadtree[1][j]=i; 
-    if(j-quadtree[1][0]>=R){
+    if(j-quadtree[1][0]>=2*R){
       quadtree[1][0]=j;
       initquadtree(1,0.5,0.5,1,1,collisionWorld);
       j=quadtree[1][0];
@@ -350,7 +361,6 @@ void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
 
   // Call the collision solver for each intersection event.
   IntersectionEventNode* curNode = intersectionEventList.head;
-  //int cont=1;
   while (curNode != NULL) {
     CollisionWorld_collisionSolver(collisionWorld, curNode->l1, curNode->l2,
                                    curNode->intersectionType);
