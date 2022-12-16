@@ -61,47 +61,33 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
   //if(i>4*collisionWorld->numOfLines) return;
   int k,lim,i4=4*i;
   int moved[10*R];
-  double xm,ym,qdim;
+  double xm,ym;
   double t = collisionWorld->timeStep;
   if(quadtree[i][0]>=R){
     lim=quadtree[i][0];
     xm=(xu+xl)/2;
     ym=(yu+yl)/2;
-    qdim=(xl-xu)/2;
     for(int j=1;j<=lim;j++){
       Line *line=collisionWorld->lines[quadtree[i][j]];
       Vec shift,p3,p4;
       int child=i4+2;
-      double nxu,nyu,nxl,nyl;
       shift=Vec_multiply(line->velocity, t);
-      //if(shift.x<=qdim && shift.y<=qdim){
-        p3= Vec_add(line->p1, shift);
-        p4= Vec_add(line->p2, shift);
-        nxu=xu;
-        nyu=yu;
-        nxl=xm;
-        nyl=ym;
-        if(fourinsqr(line->p1,line->p2,p3,p4,nxu,nyu,nxl,nyl))
-          child=i4-2;
-        else{//only two of the four corners change when cycling through the four sub-quadrants in (counter)-clockwise order
-          nxu=xm;
-          nxl=xl;
-          if(fourinsqr(line->p1,line->p2,p3,p4,nxu,nyu,nxl,nyl))
-            child=i4-1;
+      p3= Vec_add(line->p1, shift);
+      p4= Vec_add(line->p2, shift);
+      if(fourinsqr(line->p1,line->p2,p3,p4,xu,yu,xm,ym))
+        child=i4-2;
+      else{//only two of the four corners change when cycling through the four sub-quadrants in (counter)-clockwise order
+        if(fourinsqr(line->p1,line->p2,p3,p4,xm,yu,xl,ym))
+          child=i4-1;
+        else{
+          if(fourinsqr(line->p1,line->p2,p3,p4,xm,ym,xl,yl))
+            child=i4;  
           else{
-            nyu=ym;
-            nyl=yl;
-            if(fourinsqr(line->p1,line->p2,p3,p4,nxu,nyu,nxl,nyl))
-              child=i4;  
-            else{
-              nxu=xu;
-              nxl=xm;
-              if(fourinsqr(line->p1,line->p2,p3,p4,nxu,nyu,nxl,nyl))
-                child=i4+1;
-            }
+            if(fourinsqr(line->p1,line->p2,p3,p4,xu,ym,xm,yl))
+              child=i4+1;
           }
         }
-      //}
+      }
       moved[j]=child;
     }
     k=1;
@@ -120,28 +106,12 @@ void initquadtree(int i,double xu,double yu, double xl,double yl,CollisionWorld*
         quadtree[child][quadtree[child][0]]=quadtree[i][j];
       }
     }
-    double nxu,nyu,nxl,nyl;
-    nxu=xu;
-    nyu=yu;
-    nxl=xm;
-    nyl=ym;
-    for(int j=-2;j<=1;j++){
-      switch(j){
-        case -1: nxu=xm;
-                 nxl=xl;
-                 break;
-        case 0:  nyu=ym;
-                 nyl=yl;
-                 break;
-        case 1: nxu=xu;
-                nxl=xm;
-                break;
-        default: break;
-      }
-      int child=4*i+j;
-      if(quadtree[child][0]>=2*R)
-          initquadtree(child,nxu,nyu,nxl,nyl,collisionWorld);
-    }
+    //cilk_scope{ //it does not yield any noticeable improvement
+    if(quadtree[i4-2][0]>=R) initquadtree(i4-2,xu,yu,xm,ym,collisionWorld);
+    if(quadtree[i4-1][0]>=R) initquadtree(i4-1,xm,yu,xl,ym,collisionWorld);
+    if(quadtree[i4][0]>=R) initquadtree(i4,xm,ym,xl,yl,collisionWorld);
+    if(quadtree[i4+1][0]>=R) initquadtree(i4+1,xu,ym,xm,yl,collisionWorld);
+    //}
     quadtree[i][0]=k-1;
   }
 }
@@ -240,7 +210,7 @@ CollisionWorld* CollisionWorld_new(const unsigned int capacity) {
 }
 
 void CollisionWorld_delete(CollisionWorld* collisionWorld) {
-  cilk_for (int i = 0; i < collisionWorld->numOfLines; i++) {
+  for (int i = 0; i < collisionWorld->numOfLines; i++) {//cilk_for can be used here, with very minor improvements
     free(collisionWorld->lines[i]);
   }
   free(collisionWorld->lines);
@@ -344,8 +314,6 @@ void CollisionWorld_detectIntersection(CollisionWorld* collisionWorld) {
   mergelist(&intersectionEventList,newlist1.head);
   collisionWorld->numLineLineCollisions+=sum1;
   //printlist(intersectionEventList.head);
-  // Test all line-line pairs to see if they will intersect before the
-  // next time step.
   // Sort the intersection event list.
   IntersectionEventNode* startNode = intersectionEventList.head;
   while (startNode != NULL) {
